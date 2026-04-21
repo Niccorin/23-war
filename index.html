@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>リアルタイム領地マップ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+  body { margin: 0; font-family: sans-serif; text-align: center; }
+  #map { width: 100%; height: 90vh; }
+  h2 { margin: 10px; }
+</style>
+</head>
+<body>
+<h2>リアルタイム領地マップ</h2>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+// マップ作成
+const map = L.map('map').setView([35.68, 139.76], 11);
+
+// 背景地図
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// チーム色
+const colors = {
+  none: '#cccccc',
+  red: 'red',
+  blue: 'blue',
+  green: 'green'
+};
+
+// 状態保存
+let wardState = {};
+
+// 色変更関数
+function cycleTeam(name) {
+  const order = ['none', 'red', 'blue', 'green'];
+  let current = wardState[name] || 'none';
+  let next = order[(order.indexOf(current) + 1) % order.length];
+  wardState[name] = next;
+  localStorage.setItem('tokyoWards', JSON.stringify(wardState));
+  return next;
+}
+
+// 色取得
+function getColor(name) {
+  return colors[wardState[name] || 'none'];
+}
+
+// 保存データ読み込み
+const saved = localStorage.getItem('tokyoWards');
+if (saved) wardState = JSON.parse(saved);
+
+// GeoJSON読み込み（外部ファイルを使う）
+fetch('tokyo23.geojson')
+  .then(res => res.json())
+  .then(data => {
+    L.geoJSON(data, {
+      style: feature => ({
+        color: '#333',
+        weight: 1,
+        fillColor: getColor(feature.properties.name),
+        fillOpacity: 0.7
+      }),
+      onEachFeature: (feature, layer) => {
+        const name = feature.properties.name;
+
+        layer.on('click', () => {
+          const team = cycleTeam(name);
+          layer.setStyle({ fillColor: colors[team] });
+        });
+
+        layer.bindTooltip(name);
+      }
+    }).addTo(map);
+  });
+</script>
+</body>
+</html>
